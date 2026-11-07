@@ -1,0 +1,21 @@
+body { font-family: serif; line-height: 1.5; }
+h1, h2, h3, h4 { font-family: sans-serif; line-height: 1.25; }
+h1 { font-size: 1.6em; margin-top: 1.5em; }
+h2 { font-size: 1.35em; margin-top: 1.4em; }
+h3 { font-size: 1.15em; }
+code { font-family: monospace; font-size: 0.88em; }
+pre {
+  font-size: 0.78em;
+  line-height: 1.35;
+  white-space: pre-wrap;      /* wrap long lines instead of running off a phone screen */
+  word-wrap: break-word;
+  overflow-wrap: anywhere;
+  background: rgba(127,127,127,0.12);
+  padding: 0.6em;
+  border-radius: 4px;
+}
+table { border-collapse: collapse; width: 100%; font-size: 0.82em; margin: 1em 0; }
+th, td { border: 1px solid rgba(127,127,127,0.5); padding: 0.3em 0.45em; vertical-align: top; }
+td code, th code { overflow-wrap: anywhere; word-break: break-word; }
+blockquote { margin-left: 0.5em; padding-left: 0.8em; border-left: 3px solid rgba(127,127,127,0.6); font-style: italic; }
+ul.task-list { list-style: none; padding-left: 0.5em; }

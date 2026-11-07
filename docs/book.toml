@@ -1,0 +1,11 @@
+[book]
+title = "The MercLab Book"
+description = "Owning, running and growing the Mercury NixOS / nix-darwin configuration"
+authors = ["mercury"]
+language = "en"
+src = "src"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = "https://github.com/MercNetwork/MercLab"
