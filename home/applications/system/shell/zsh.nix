@@ -1,0 +1,71 @@
+{
+  config,
+  lib,
+  pkgs,
+  inputs,
+  ...
+}: let
+  cfg = config.mercury.home.apps.system.shell.zsh;
+in {
+  options.mercury.home.apps.system.shell.zsh = {
+    enable = lib.mkEnableOption "Zsh config";
+
+    autostartFastfetch = lib.mkEnableOption "autostart fastfetch on interactive shell start";
+
+    configsPath = lib.mkOption {
+      type = lib.types.nullOr lib.types.str;
+      default = config.mercury.home.environment.configsPath;
+      example = null;
+      description = ''
+        Path to this app's configs for out-of-store symlinking.
+        Defaults to global `mercury.home.environment.configsPath`.
+        Set to `null` to use the pure flake store.
+      '';
+    };
+  };
+
+  config = lib.mkIf cfg.enable {
+    xdg.configFile."zsh.d" = {
+      source =
+        if cfg.configsPath != null
+        then config.lib.file.mkOutOfStoreSymlink "${cfg.configsPath}/zsh.d"
+        else "${inputs.self}/home/configs/zsh.d";
+    };
+
+    programs.zsh = {
+      enable = true;
+
+      initContent = ''
+        ${lib.optionalString cfg.autostartFastfetch ''
+          [[ -o interactive ]] && ${pkgs.fastfetch}/bin/fastfetch
+        ''}
+
+        [[ -f "${config.xdg.configHome}/zsh.d/custom.zsh" ]] && source "${config.xdg.configHome}/zsh.d/custom.zsh"
+
+        for file in "${config.xdg.configHome}/zsh.d/conf.d"/*.zsh(N); do
+          source "$file"
+        done
+      '';
+
+      enableCompletion = true;
+      autosuggestion.enable = true;
+      syntaxHighlighting.enable = true;
+
+      oh-my-zsh = {
+        enable = true;
+        plugins = ["git"];
+      };
+
+      plugins = [
+        {
+          name = "you-should-use";
+          src = "${pkgs.zsh-you-should-use}/share/zsh/plugins/you-should-use";
+        }
+        {
+          name = "zsh-z";
+          src = "${pkgs.zsh-z}/share/zsh/plugins/zsh-z";
+        }
+      ];
+    };
+  };
+}
