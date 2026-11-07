@@ -1,285 +1,87 @@
-# Hyprland (user side): links the Lua config, runs the Wayle shell and the
-# small helper services, and installs every program the keybinds call.
-#
-# Every key in home/configs/hypr/variables.lua points at something installed
-# here or by the default user profile — if you change an app there, install
-# its replacement too.
-{
-  pkgs,
-  config,
-  lib,
-  inputs,
-  ...
-}: let
-  cfg = config.mercury.home.desktop.wms.hyprland;
+# Hyprland and keybinds
 
-  link = name:
-    if cfg.configsPath != null
-    then config.lib.file.mkOutOfStoreSymlink "${cfg.configsPath}/${name}"
-    else "${inputs.self}/home/configs/${name}";
+Hyprland is the window manager; [Wayle](wayle.md) draws the bar,
+notifications and on-screen displays around it. Windows tile automatically
+(dwindle layout): each new window splits the focused one.
 
-  powermenu = pkgs.writeShellApplication {
-    name = "mercury-powermenu";
-    runtimeInputs = with pkgs; [fuzzel systemd uwsm hyprlock procps];
-    text = ''
-      choice=$(printf '%s\n' "  Lock" "  Logout" "  Suspend" "  Reboot" "  Shutdown" \
-        | fuzzel --dmenu --prompt "Power › " --lines 5 --width 20) || exit 0
-      case "$choice" in
-        *Lock)     pidof hyprlock || hyprlock ;;
-        *Logout)   uwsm stop ;;
-        *Suspend)  systemctl suspend ;;
-        *Reboot)   systemctl reboot ;;
-        *Shutdown) systemctl poweroff ;;
-      esac
-    '';
-  };
+## Workspaces
 
-  screenshot = pkgs.writeShellApplication {
-    name = "mercury-screenshot";
-    runtimeInputs = with pkgs; [grim slurp wl-clipboard libnotify coreutils];
-    text = ''
-      dir="''${XDG_PICTURES_DIR:-$HOME/Pictures}/Screenshots"
-      mkdir -p "$dir"
-      file="$dir/$(date +%Y-%m-%d_%H-%M-%S).png"
-      case "''${1:-full}" in
-        full)
-          grim "$file"
-          wl-copy < "$file"
-          notify-send -i "$file" "Screenshot saved" "$file" ;;
-        region)
-          geometry=$(slurp) || exit 0
-          grim -g "$geometry" - | wl-copy
-          notify-send "Screenshot copied" "Region copied to clipboard" ;;
-        region-save)
-          geometry=$(slurp) || exit 0
-          grim -g "$geometry" "$file"
-          wl-copy < "$file"
-          notify-send -i "$file" "Screenshot saved" "$file" ;;
-        *) echo "usage: mercury-screenshot [full|region|region-save]" >&2; exit 1 ;;
-      esac
-    '';
-  };
+| Keys | Action |
+|------|--------|
+| `SUPER + 1…0` | go to workspace 1–10 |
+| `SUPER + ALT + 1…0` | move window to workspace 1–10 |
+| `CTRL + SUPER + 1…0` | go to workspace group (11–20, 21–30, …) |
+| `SUPER + arrows` | focus left/right/up/down |
+| `SUPER + SHIFT + arrows` | move window left/right/up/down |
+| 4-finger swipe | switch workspace (touchpad) |
+| 3-finger swipe up/down | toggle scratchpad |
 
-  record = pkgs.writeShellApplication {
-    name = "mercury-record";
-    runtimeInputs = with pkgs; [wf-recorder slurp libnotify procps coreutils];
-    text = ''
-      # Pressing any record key while recording stops the recording.
-      if pgrep -x wf-recorder >/dev/null; then
-        pkill -INT -x wf-recorder
-        notify-send "Recording stopped"
-        exit 0
-      fi
-      dir="''${XDG_VIDEOS_DIR:-$HOME/Videos}/Recordings"
-      mkdir -p "$dir"
-      file="$dir/$(date +%Y-%m-%d_%H-%M-%S).mp4"
-      case "''${1:-screen}" in
-        screen) notify-send "Recording screen"; wf-recorder -f "$file" ;;
-        sound)  notify-send "Recording screen with audio"; wf-recorder --audio -f "$file" ;;
-        region)
-          geometry=$(slurp) || exit 0
-          notify-send "Recording region"
-          wf-recorder -g "$geometry" -f "$file" ;;
-        *) echo "usage: mercury-record [screen|sound|region]" >&2; exit 1 ;;
-      esac
-    '';
-  };
+## Every other keybind
 
-  clipboard = pkgs.writeShellApplication {
-    name = "mercury-clipboard";
-    runtimeInputs = with pkgs; [cliphist fuzzel wl-clipboard procps];
-    text = ''
-      pkill -x fuzzel && exit 0
-      case "''${1:-pick}" in
-        pick)   cliphist list | fuzzel --dmenu --prompt "Clipboard › " | cliphist decode | wl-copy ;;
-        delete) cliphist list | fuzzel --dmenu --prompt "Delete › " | cliphist delete ;;
-        *) echo "usage: mercury-clipboard [pick|delete]" >&2; exit 1 ;;
-      esac
-    '';
-  };
-in {
-  options.mercury.home.desktop.wms.hyprland = {
-    enable = lib.mkEnableOption "the Mercury Hyprland desktop (Wayle shell, hyprlock, hypridle, fuzzel)";
+Generated from `home/configs/hypr/variables.lua` — change keys there (or
+override them in `user/vars.lua`).
 
-    configsPath = lib.mkOption {
-      type = lib.types.nullOr lib.types.str;
-      default = config.mercury.home.environment.configsPath;
-      defaultText = lib.literalExpression "config.mercury.home.environment.configsPath";
-      description = ''
-        Where home/configs lives on disk. When set, ~/.config/hypr is a live
-        symlink into the repo (edit + `hyprctl reload`, no rebuild).
-        Set to null to use the read-only copy from the flake.
-      '';
-    };
+| Action | Keys | Variable |
+|--------|------|----------|
+| Send window to scratchpad | `SUPER + ALT + S` · `CTRL + SUPER + SHIFT + Up` | `kbMoveWinToWsSpecial` |
+| Move window to next workspace | `SUPER + ALT + mouse_down` · `SUPER + ALT + Page_Down` · `CTRL + SUPER + SHIFT + Right` | `kbMoveWinToWsNext` |
+| Next workspace | `SUPER + mouse_down` · `CTRL + SUPER + Right` · `SUPER + Page_Down` | `kbNextWs` |
+| Next group of 10 workspaces | `CTRL + SUPER + mouse_down` | `kbNextWsGroup` |
+| Next window | `ALT + TAB` | `kbWindowCycleNext` |
+| Next tab in group | `CTRL + ALT + TAB` | `kbWindowGroupCycleNext` |
+| Move window out of group | `SUPER + U` | `kbUngroup` |
+| Lock group | `SUPER + SHIFT + Comma` | `kbGroupLockActive` |
+| Narrower | `SUPER + Minus` · `SUPER + ALT + Left` | `kbWindowDecreaseWidth` |
+| Shorter | `SUPER + SHIFT + Minus` · `SUPER + ALT + Up` | `kbWindowDecreaseHeight` |
+| Drag to move (also SUPER + left mouse) | `SUPER + Z` | `kbMoveWindow` |
+| Center floating window | `CTRL + SUPER + Backslash` | `kbCenterWindow` |
+| Picture-in-picture | `SUPER + ALT + Backslash` | `kbWindowPip` |
+| Fullscreen | `SUPER + F` | `kbWindowFullscreen` |
+| Toggle floating | `SUPER + ALT + Space` | `kbToggleWindowFloating` |
+| Toggle scratchpad | `SUPER + S` | `kbSpecialWs` |
+| Music scratchpad (Spotify) | `SUPER + M` | `kbMusicWs` |
+| To-do scratchpad | `SUPER + R` | `kbTodoWs` |
+| Terminal (kitty) | `SUPER + T` | `kbTerminal` |
+| Editor (Neovim in kitty) | `SUPER + C` | `kbEditor` |
+| Audio mixer (pwvucontrol) | `CTRL + ALT + V` | `kbAudioSettings` |
+| Screenshot whole screen (saved + copied) | `Print` | `kbScreenshot` |
+| Screenshot region → file + clipboard | `SUPER + SHIFT + ALT + S` | `kbScreenshotRegionSave` |
+| Record screen with audio | `SUPER + ALT + R` | `kbRecordSound` |
+| Colour picker | `SUPER + SHIFT + C` | `kbColorPicker` |
+| Play/pause | `CTRL + SUPER + Space` | `kbMediaToggle` |
+| Previous track | `CTRL + SUPER + Minus` | `kbMediaPrev` |
+| Mute | `SUPER + SHIFT + M` | `kbVolumeMute` |
+| App launcher (fuzzel) — tap SUPER | `SUPER + SUPER_L` | `kbLauncher` |
+| Restart the Wayle bar | `CTRL + SUPER + ALT + R` | `kbRestartShell` |
+| Suspend | `SUPER + SHIFT + L` | `kbSleep` |
+| Clipboard history | `SUPER + V` | `kbClipboard` |
+| Volume up/down, brightness, media keys | the keyboard's media keys | — |
 
-    scale = lib.mkOption {
-      type = lib.types.either lib.types.int lib.types.float;
-      default = 1;
-      example = 1.25;
-      description = ''
-        UI scale for the whole desktop: Hyprland monitor scale and the Wayle
-        bar. 1 = 100%. Use 1.25 / 1.5 / 2 for high-DPI screens.
-      '';
-    };
+## Scratchpads
 
-    wayle.settings = lib.mkOption {
-      type = lib.types.attrs;
-      default = {};
-      description = "Extra Wayle settings merged over Mercury's defaults (see https://wayle.app/config).";
-    };
+A scratchpad is a hidden workspace that slides over the current one. Mercury
+has five: a general one (`SUPER+S`), and system monitor, music, chat and to-do.
+Pressing the key opens it, launches its app if needed (btop, Spotify,
+Discord), and pulls in matching windows. Press again to hide.
 
-    idle = {
-      lockAfter = lib.mkOption {
-        type = lib.types.int;
-        default = 600;
-        description = "Seconds of inactivity before the screen locks.";
-      };
-      suspendAfter = lib.mkOption {
-        type = lib.types.nullOr lib.types.int;
-        default = null;
-        example = 1800;
-        description = "Seconds of inactivity before suspending (null = never).";
-      };
-    };
+Customise per machine without editing the code: create
+`home/configs/hypr/user/scratchpads.json`:
 
-    extraPackages = lib.mkOption {
-      type = lib.types.listOf lib.types.package;
-      default = [];
-      description = "Extra packages to install alongside Hyprland.";
-    };
-  };
+```json
+{ "toggles": { "todo": { "obsidian": { "enable": true, "match": [{ "class": "obsidian" }], "command": ["obsidian"], "move": true } } } }
+```
 
-  config = lib.mkIf cfg.enable {
-    home.packages =
-      (with pkgs; [
-        hyprpolkitagent
-        hyprpicker
-        brightnessctl
-        playerctl
-        wireplumber # wpctl (volume keys)
-        libnotify # notify-send
-        trash-cli
-        btop # sysmon scratchpad
-        grim
-        slurp
-        wl-clipboard
-        wf-recorder
-        bibata-cursors
-      ])
-      ++ [powermenu screenshot record clipboard]
-      ++ cfg.extraPackages;
+## Changing a default app
 
-    # ---- Hyprland config (Lua) -------------------------------------------
-    xdg.configFile."hypr".source = link "hypr";
-    xdg.configFile."mercury/scale.lua".text = "return ${toString cfg.scale}\n";
+1. Set it in `variables.lua` (`terminal`, `browser`, `editor`, `fileExplorer`,
+   `audioSettings`) or in `user/vars.lua`.
+2. Make sure it's installed: enable its toggle in `home/users/mercury/linux.nix`.
+3. Update the matching file association in `home/environment/xdg.nix` if it
+   handles file types.
 
-    # UWSM starts Hyprland outside a login shell: hand it Home Manager's env.
-    xdg.configFile."uwsm/env".text = ''
-      if [ -f "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh" ]; then
-        . "${config.home.sessionVariablesPackage}/etc/profile.d/hm-session-vars.sh"
-      fi
-      export QT_WAYLAND_DISABLE_WINDOWDECORATION=1
-    '';
+## Helper commands behind the keybinds
 
-    # ---- Wayle: bar, notifications, OSD, wallpaper -----------------------
-    services.wayle = {
-      enable = true;
-      autoInstallDependencies = true;
-      settings = lib.recursiveUpdate {
-        bar.layout = [
-          {
-            monitor = "*";
-            left = ["dashboard" "hyprland-workspaces" "window-title"];
-            center = ["clock" "media"];
-            right = ["systray" "volume" "network" "bluetooth" "battery" "notifications" "power"];
-          }
-        ];
-        bar.scale = cfg.scale;
-        modules.clock.format = "%a %d %b  %H:%M";
-      }
-      cfg.wayle.settings;
-    };
-
-    # ---- Launcher --------------------------------------------------------
-    programs.fuzzel = {
-      enable = true;
-      settings.main = {
-        terminal = "kitty";
-        layer = "overlay";
-      };
-    };
-
-    # ---- Lock & idle -----------------------------------------------------
-    programs.hyprlock = {
-      enable = true;
-      settings = {
-        general.hide_cursor = true;
-        background = [
-          {
-            path = "screenshot";
-            blur_passes = 3;
-            blur_size = 8;
-          }
-        ];
-        input-field = [
-          {
-            size = "300, 50";
-            position = "0, -80";
-            halign = "center";
-            valign = "center";
-            outline_thickness = 2;
-            placeholder_text = "Password";
-          }
-        ];
-        label = [
-          {
-            text = "$TIME";
-            font_size = 64;
-            position = "0, 80";
-            halign = "center";
-            valign = "center";
-          }
-        ];
-      };
-    };
-
-    services.hypridle = {
-      enable = true;
-      settings = {
-        general = {
-          lock_cmd = "pidof hyprlock || hyprlock";
-          before_sleep_cmd = "loginctl lock-session";
-        };
-        listener =
-          [
-            {
-              timeout = cfg.idle.lockAfter;
-              on-timeout = "loginctl lock-session";
-            }
-          ]
-          ++ lib.optional (cfg.idle.suspendAfter != null) {
-            timeout = cfg.idle.suspendAfter;
-            on-timeout = "systemctl suspend";
-          };
-      };
-    };
-
-    # ---- Small background services ---------------------------------------
-    services.cliphist.enable = true;
-    services.mpris-proxy.enable = true; # Bluetooth headset media buttons
-
-    systemd.user.services.hyprpolkitagent = {
-      Unit = {
-        Description = "Hyprland polkit authentication agent";
-        PartOf = ["graphical-session.target"];
-        After = ["graphical-session.target"];
-      };
-      Service = {
-        ExecStart = "${pkgs.hyprpolkitagent}/libexec/hyprpolkitagent";
-        Restart = "on-failure";
-        RestartSec = 1;
-      };
-      Install.WantedBy = ["graphical-session.target"];
-    };
-  };
-}
+All defined in `home/desktop/wms/hyprland.nix`, usable from a terminal too:
+`mercury-powermenu`, `mercury-screenshot [full|region|region-save]`,
+`mercury-record [screen|sound|region]`, `mercury-clipboard [pick|delete]`.
+Screenshots go to `~/Pictures/Screenshots`, recordings to `~/Videos/Recordings`.
