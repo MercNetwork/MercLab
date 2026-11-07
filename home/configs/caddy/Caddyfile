@@ -1,0 +1,15 @@
+# Example Caddyfile, used when mercury.home.services.caddy is enabled.
+# Live file: ~/.config/caddy/Caddyfile (symlinked here). Reload without a
+# rebuild: `caddy-reload`. Docs: https://caddyserver.com/docs/caddyfile
+{
+	admin localhost:2019
+}
+
+:80 {
+	respond "Caddy is running on {system.hostname}"
+}
+
+# Reverse proxy example:
+# app.example.com {
+# 	reverse_proxy localhost:8080
+# }
